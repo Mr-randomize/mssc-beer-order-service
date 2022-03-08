@@ -1,4 +1,4 @@
-package com.iviberberi.beer.order.service.web.model;
+package com.iviberberi.brewery.model;
 
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;

@@ -2,7 +2,7 @@
 package com.iviberberi.beer.order.service.web.mappers;
 
 import com.iviberberi.beer.order.service.domain.BeerOrder;
-import com.iviberberi.beer.order.service.web.model.BeerOrderDto;
+import com.iviberberi.brewery.model.BeerOrderDto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

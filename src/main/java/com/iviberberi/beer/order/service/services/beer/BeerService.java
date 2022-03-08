@@ -1,6 +1,6 @@
 package com.iviberberi.beer.order.service.services.beer;
 
-import com.iviberberi.beer.order.service.web.model.BeerDto;
+import com.iviberberi.brewery.model.BeerDto;
 
 import java.util.Optional;
 import java.util.UUID;
