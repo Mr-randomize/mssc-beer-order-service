@@ -4,6 +4,7 @@ import com.iviberberi.beer.order.service.domain.BeerOrder;
 import com.iviberberi.beer.order.service.domain.BeerOrderEventEnum;
 import com.iviberberi.beer.order.service.domain.BeerOrderStatusEnum;
 import com.iviberberi.beer.order.service.repositories.BeerOrderRepository;
+import com.iviberberi.beer.order.service.sm.BeerOrderStateChangeInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
@@ -18,8 +19,11 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class BeerOrderManagerImpl implements BeerOrderManager {
 
+    public static final String ORDER_ID_HEADER = "ORDER_ID_HEADER";
+
     private final StateMachineFactory<BeerOrderStatusEnum, BeerOrderEventEnum> stateMachineFactory;
     private final BeerOrderRepository beerOrderRepository;
+    private final BeerOrderStateChangeInterceptor beerOrderStateChangeInterceptor;
 
 
     @Transactional
@@ -39,6 +43,7 @@ public class BeerOrderManagerImpl implements BeerOrderManager {
         StateMachine<BeerOrderStatusEnum, BeerOrderEventEnum> sm = build(beerOrder);
 
         Message msg = MessageBuilder.withPayload(eventEnum)
+                .setHeader(ORDER_ID_HEADER, beerOrder.getId().toString())
                 .build();
 
         sm.sendEvent(Mono.just(msg));
@@ -50,6 +55,7 @@ public class BeerOrderManagerImpl implements BeerOrderManager {
         sm.stopReactively();
         sm.getStateMachineAccessor()
                 .doWithAllRegions(sma -> {
+                    sma.addStateMachineInterceptor(beerOrderStateChangeInterceptor);
                     sma.resetStateMachineReactively(new DefaultStateMachineContext<>(beerOrder.getOrderStatus(), null, null, null));
                 });
 
