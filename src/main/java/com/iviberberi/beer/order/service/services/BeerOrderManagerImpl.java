@@ -73,7 +73,7 @@ public class BeerOrderManagerImpl implements BeerOrderManager {
 
         beerOrderOptional.ifPresentOrElse(beerOrder -> {
             sendBeerOrderEvent(beerOrder, BeerOrderEventEnum.ALLOCATION_SUCCESS);
-            updateAllocatedQty(beerOrderDto, beerOrder);
+            updateAllocatedQty(beerOrderDto);
         }, () -> log.error("Order Id Not Found: " + beerOrderDto.getId()));
     }
 
@@ -84,11 +84,11 @@ public class BeerOrderManagerImpl implements BeerOrderManager {
         beerOrderOptional.ifPresentOrElse(beerOrder -> {
             sendBeerOrderEvent(beerOrder, BeerOrderEventEnum.ALLOCATION_NO_INVENTORY);
 
-            updateAllocatedQty(beerOrderDto, beerOrder);
+            updateAllocatedQty(beerOrderDto);
         }, () -> log.error("Order Id Not Found: " + beerOrderDto.getId()));
     }
 
-    private void updateAllocatedQty(BeerOrderDto beerOrderDto, BeerOrder beerOrder) {
+    private void updateAllocatedQty(BeerOrderDto beerOrderDto) {
         Optional<BeerOrder> allocatedOrderOptional = beerOrderRepository.findById(beerOrderDto.getId());
 
         allocatedOrderOptional.ifPresentOrElse(allocatedOrder -> {
@@ -100,7 +100,7 @@ public class BeerOrderManagerImpl implements BeerOrderManager {
                 });
             });
 
-            beerOrderRepository.saveAndFlush(beerOrder);
+            beerOrderRepository.saveAndFlush(allocatedOrder);
         }, () -> log.error("Order Not Found. Id: " + beerOrderDto.getId()));
     }
 
@@ -111,6 +111,17 @@ public class BeerOrderManagerImpl implements BeerOrderManager {
         beerOrderOptional.ifPresentOrElse(beerOrder -> {
             sendBeerOrderEvent(beerOrder, BeerOrderEventEnum.ALLOCATION_FAILED);
         }, () -> log.error("Order Not Found. Id: " + beerOrderDto.getId()) );
+
+    }
+
+    @Override
+    public void beerOrderPickedUp(UUID id) {
+        Optional<BeerOrder> beerOrderOptional = beerOrderRepository.findById(id);
+
+        beerOrderOptional.ifPresentOrElse(beerOrder -> {
+            //do process
+            sendBeerOrderEvent(beerOrder, BeerOrderEventEnum.BEERORDER_PICKED_UP);
+        }, () -> log.error("Order Not Found. Id: " + id));
     }
 
     private void sendBeerOrderEvent(BeerOrder beerOrder, BeerOrderEventEnum eventEnum) {
@@ -120,20 +131,21 @@ public class BeerOrderManagerImpl implements BeerOrderManager {
                 .setHeader(ORDER_ID_HEADER, beerOrder.getId().toString())
                 .build();
 
-        sm.sendEvent(Mono.just(msg));
+        sm.sendEvent(msg);
     }
 
     private StateMachine<BeerOrderStatusEnum, BeerOrderEventEnum> build(BeerOrder beerOrder) {
         StateMachine<BeerOrderStatusEnum, BeerOrderEventEnum> sm = stateMachineFactory.getStateMachine(beerOrder.getId());
 
-        sm.stopReactively();
+        sm.stop();
+
         sm.getStateMachineAccessor()
                 .doWithAllRegions(sma -> {
                     sma.addStateMachineInterceptor(beerOrderStateChangeInterceptor);
-                    sma.resetStateMachineReactively(new DefaultStateMachineContext<>(beerOrder.getOrderStatus(), null, null, null));
+                    sma.resetStateMachine(new DefaultStateMachineContext<>(beerOrder.getOrderStatus(), null, null, null));
                 });
 
-        sm.startReactively();
+        sm.start();
 
         return sm;
     }
